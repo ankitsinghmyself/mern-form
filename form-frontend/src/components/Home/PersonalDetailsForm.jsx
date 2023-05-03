@@ -1,21 +1,67 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import axios from 'axios';
+
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import Swal from 'sweetalert2';
+
+const INDIAN_PHONE_REGEX = /^(\+91[\-\s]?)?[0]?(91)?[6789]\d{9}$/;
 
 const schema = yup.object().shape({
-  name: yup.string().required(),
-  age: yup.string().required(),
-  sex: yup.string().required(),
-  mobile: yup.string(),
-  govtId: yup.string(),
-  govtIdType: yup.string(),
+  name: yup
+    .string()
+    .test('len', 'Must be less then 20 characters', (val) => val.length <= 20)
+    .required('Name is required'),
 
-  guardianNameLebel: yup.string(),
+  age: yup
+    .string()
+    .test('len', 'Must be less then 20 characters', (val) => val.length <= 20)
+    .required(),
+  sex: yup
+    .string()
+    .test('len', 'Must be less then 20 characters', (val) => val.length <= 20)
+    .required(),
+  mobile: yup.lazy((value) => {
+    if (value && value.length > 0) {
+      return yup
+        .string()
+        .required('Mobile number is required')
+        .matches(INDIAN_PHONE_REGEX, 'Must be a valid indian phone number');
+    } else {
+      return yup.string().nullable().notRequired();
+    }
+  }),
+  govtIdType: yup.string(),
+  govtId: yup.string().when('govtIdType', (govtIdType, schema) => {
+    if (!govtIdType[0]) return schema;
+    if (govtIdType[0] === 'none') return schema.notRequired();
+    if (govtIdType[0] === 'aadhar')
+      return schema
+        .matches(/^\d{12}$/, 'Aadhar number should be 12 digits')
+        .required('Aadhar number is required');
+    if (govtIdType[0] === 'pan')
+      return schema
+        .matches(
+          /^([a-zA-Z]){5}([0-9]){4}([a-zA-Z]){1}?$/,
+          'PAN length should be 10 digits'
+        )
+        .required('PAN number is required');
+  }),
+
+  guardianNameLabel: yup.string(),
   guardianName: yup.string(),
   guardianEmail: yup.string(),
-  emergencyContactPhone: yup.string(),
-
+  emergencyContactPhone: yup.lazy((value) => {
+    if (value && value.length > 0) {
+      return yup
+        .string()
+        .required('Mobile number is required')
+        .matches(INDIAN_PHONE_REGEX, 'Must be a valid indian phone number');
+    } else {
+      return yup.string().nullable().notRequired();
+    }
+  }),
   address: yup.string(),
   state: yup.string(),
   city: yup.string(),
@@ -26,7 +72,7 @@ const schema = yup.object().shape({
   region: yup.string(),
   maritalStatus: yup.string(),
   bloodGroup: yup.string(),
-  nationality: yup.string(),
+  nationality: yup.string('Indian'),
 });
 
 const PersonalDetailsForm = () => {
@@ -34,13 +80,60 @@ const PersonalDetailsForm = () => {
     register,
     handleSubmit,
     formState: { errors },
+    setValue,
     reset,
+    trigger,
   } = useForm({
     resolver: yupResolver(schema),
   });
   const onSubmitHandler = (data) => {
-    console.log({ data });
+    axios
+      .post('http://localhost:3300/api/save', data)
+      .then((response) => {
+        console.log(response.data);
+        reset();
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+    Swal.fire({
+      icon: 'success',
+      title: 'Saved!',
+      text: 'You have successfully Save data.',
+      html: 'Click <a href="/display"><b><u>here</u></b></a> to go to the data dashboard.',
+      confirmButtonText: 'OK',
+      cancelButtonText: 'Cancel',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // User clicked OK button
+        Swal.fire('Changes are saved in Data', '', 'info');
+      } else if (result.isDenied) {
+        // User clicked Cancel button
+        Swal.fire('Changes are saved in Data', '', 'info');
+      }
+    });
     reset();
+  };
+  const handleCancel = () => {
+    Swal.fire({
+      title: 'Are you sure?',
+      text: 'You will not be able to recover this imaginary file!',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        Swal.fire(
+          'Deleted!',
+          'Your imaginary file has been deleted.',
+          'success'
+        );
+        reset();
+      } else if (result.dismiss === Swal.DismissReason.cancel) {
+        Swal.fire('Cancelled', 'Your imaginary file is safe :)', 'error');
+      }
+    });
   };
   return (
     <>
@@ -108,7 +201,11 @@ const PersonalDetailsForm = () => {
                   >
                     Sex<span className="text-red-400">*</span>
                   </label>
-                  <select className="block w-full px-4 py-2 rounded-md border-gray-400 shadow-md focus:border-indigo-500 focus:ring-indigo-500">
+                  <select
+                    {...register('sex')}
+                    onChange={(e) => setValue('sex', e.target.value)}
+                    className="block w-full px-4 py-2 rounded-md border-gray-400 shadow-md focus:border-indigo-500 focus:ring-indigo-500"
+                  >
                     <option value={''}>Enter Sex</option>
                     <option value={'male'}>Male</option>
                     <option value={'female'}>Female</option>
@@ -134,11 +231,17 @@ const PersonalDetailsForm = () => {
                   </label>
                   <input
                     {...register('mobile')}
+                    onChange={(e) => setValue('mobile', e.target.value)}
                     placeholder="Mobile Number"
                     type="text"
                     className={`block w-full px-4 py-2 rounded-md border-gray-400 shadow-md focus:border-indigo-500 focus:ring-indigo-500`}
                   />
                 </div>
+                {errors.mobile && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.mobile.message}
+                  </p>
+                )}
               </div>
               <div className="w-full md:w-2/3 px-3 mb-6 text-right">
                 <div className="mb-4 flex">
@@ -150,19 +253,18 @@ const PersonalDetailsForm = () => {
                   </label>
                   <div className="mb-4 flex">
                     <select
-                      {...register('govtIdType')}
+                      {...register('govtIdType', { defaultValue: 'null' })}
+                      onChange={(e) => {
+                        setValue('govtIdType', e.target.value);
+                      }}
                       className={`block w-full px-4 py-2 rounded-md border-gray-400 shadow-md focus:border-indigo-500 focus:ring-indigo-500`}
                     >
-                      <option value="">ID Type</option>
+                      <option value="null">ID Type</option>
                       <option value="aadhar">Aadhar</option>
                       <option value="pan">PAN</option>
-                      <option value="voter">Voter ID</option>
                     </select>
-                    {errors.govtIdType && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {errors.govtIdType.message}
-                      </p>
-                    )}
+                    {errors.govtIdType && <p>{errors.govtIdType.message}</p>}
+
                     <input
                       {...register('govtId')}
                       placeholder="Government ID"
@@ -170,6 +272,11 @@ const PersonalDetailsForm = () => {
                       className={`block w-full px-4 py-2 rounded-md border-gray-400 shadow-md focus:border-indigo-500 focus:ring-indigo-500`}
                     />
                   </div>
+                  {errors.govtId && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.govtId.message}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -187,7 +294,13 @@ const PersonalDetailsForm = () => {
                   >
                     Guardian Details
                   </label>
-                  <select className="block w-full px-4 py-2 rounded-md border-gray-400 shadow-md focus:border-indigo-500 focus:ring-indigo-500">
+                  <select
+                    {...register('guardianNameLabel')}
+                    onChange={(e) =>
+                      setValue('guardianNameLabel', e.target.value)
+                    }
+                    className="block w-full px-4 py-2 rounded-md border-gray-400 shadow-md focus:border-indigo-500 focus:ring-indigo-500"
+                  >
                     <option value={''}>Enter Label</option>
                     <option value={'father'}>Father</option>
                     <option value={'mother'}>Mother</option>
@@ -220,18 +333,27 @@ const PersonalDetailsForm = () => {
               <div className="w-full md:w-1/3 px-3 mb-6 md:mb-0">
                 <div className="mb-4 flex">
                   <label
-                    htmlFor="guardianMobile"
+                    htmlFor="emergencyContactPhone"
                     className="block self-center font-medium mb-1 w-2/4"
                   >
                     Emergency Contact Number
                   </label>
                   <input
-                    {...register('guardianMobile')}
+                    {...register('emergencyContactPhone')}
+                    onChange={(e) =>
+                      setValue('emergencyContactPhone', e.target.value)
+                    }
                     placeholder="Enter Emergency No"
                     type="text"
                     className={`block w-full px-4 py-2 rounded-md border-gray-400 shadow-md focus:border-indigo-500 focus:ring-indigo-500`}
                   />
                 </div>
+
+                {errors.emergencyContactPhone && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.emergencyContactPhone.message}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -266,6 +388,7 @@ const PersonalDetailsForm = () => {
                   </label>
                   <select
                     {...register('city')}
+                    onChange={(e) => setValue('city', e.target.value)}
                     className={`block w-full px-4 py-2 rounded-md border-gray-400 shadow-md focus:border-indigo-500 focus:ring-indigo-500`}
                   >
                     <option value="">Select City</option>
@@ -285,6 +408,7 @@ const PersonalDetailsForm = () => {
                   </label>
                   <select
                     {...register('state')}
+                    onChange={(e) => setValue('state', e.target.value)}
                     className={`block w-full px-4 py-2 rounded-md border-gray-400 shadow-md focus:border-indigo-500 focus:ring-indigo-500`}
                   >
                     <option value="">Select State</option>
@@ -307,6 +431,7 @@ const PersonalDetailsForm = () => {
                   </label>
                   <select
                     {...register('country')}
+                    onChange={(e) => setValue('country', e.target.value)}
                     className={`block w-full px-4 py-2 rounded-md border-gray-400 shadow-md focus:border-indigo-500 focus:ring-indigo-500`}
                   >
                     <option value="">Select Country</option>
@@ -362,6 +487,7 @@ const PersonalDetailsForm = () => {
                   </label>
                   <select
                     {...register('religion')}
+                    onChange={(e) => setValue('religion', e.target.value)}
                     className={`block w-full px-4 py-2 rounded-md border-gray-400 shadow-md focus:border-indigo-500 focus:ring-indigo-500`}
                   >
                     <option value="">Select Religion</option>
@@ -382,6 +508,7 @@ const PersonalDetailsForm = () => {
                   </label>
                   <select
                     {...register('maritalStatus')}
+                    onChange={(e) => setValue('maritalStatus', e.target.value)}
                     className={`block w-full px-4 py-2 rounded-md border-gray-400 shadow-md focus:border-indigo-500 focus:ring-indigo-500`}
                   >
                     <option value="">Select Marital Status</option>
@@ -400,6 +527,7 @@ const PersonalDetailsForm = () => {
                   </label>
                   <select
                     {...register('bloodGroup')}
+                    onChange={(e) => setValue('bloodGroup', e.target.value)}
                     className={`block w-full px-4 py-2 rounded-md border-gray-400 shadow-md focus:border-indigo-500 focus:ring-indigo-500`}
                   >
                     <option value="">Select Blood Group</option>
@@ -426,9 +554,10 @@ const PersonalDetailsForm = () => {
                   </label>
                   <select
                     {...register('nationality')}
+                    onChange={(e) => setValue('nationality', e.target.value)}
                     className={`block w-full px-4 py-2 rounded-md border-gray-400 shadow-md focus:border-indigo-500 focus:ring-indigo-500`}
                   >
-                    <option value={'India'}>India</option>
+                    <option value={'India'}>Indian</option>
                     <option value={'USA'}>USA</option>
                     <option value={'UK'}>UK</option>
                   </select>
@@ -436,11 +565,19 @@ const PersonalDetailsForm = () => {
               </div>
             </div>
           </div>
+          <div className="flex justify-end px-10">
+            <button
+              onClick={handleCancel}
+              className="bg-red-300  hover:bg-red-700 text-white font-bold text-right py-2 px-4 rounded mr-2"
+            >
+              CANCEL
+            </button>
+            <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold text-right py-2 px-4 rounded">
+              SUBMIT
+            </button>
+          </div>
         </form>
       </div>
-      <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold text-right py-2 px-4 rounded">
-        Submit
-      </button>
     </>
   );
 };

@@ -1,11 +1,11 @@
 import logo from './logo.svg';
 import './App.css';
-import PersonalDetailsForm from './components/Home/PersonalDetailsForm';
+import Routes from './Routes';
 
 function App() {
   return (
     <div className="App">
-      <PersonalDetailsForm />
+      <Routes />
     </div>
   );
 }
