@@ -36,10 +36,10 @@ const schema = yup.object().shape({
   govtId: yup.string().when('govtIdType', (govtIdType, schema) => {
     if (!govtIdType[0]) return schema;
     if (govtIdType[0] === 'none') return schema.notRequired();
-    if (govtIdType[0] === 'aadhar')
+    if (govtIdType[0] === 'aadhaar')
       return schema
-        .matches(/^\d{12}$/, 'Aadhar number should be 12 digits')
-        .required('Aadhar number is required');
+        .matches(/^\d{12}$/, 'Aadhaar number should be 12 digits')
+        .required('Aadhaar number is required');
     if (govtIdType[0] === 'pan')
       return schema
         .matches(
@@ -260,7 +260,7 @@ const PersonalDetailsForm = () => {
                       className={`block w-full px-4 py-2 rounded-md border-gray-400 shadow-md focus:border-indigo-500 focus:ring-indigo-500`}
                     >
                       <option value="null">ID Type</option>
-                      <option value="aadhar">Aadhar</option>
+                      <option value="aadhaar">Aadhaar</option>
                       <option value="pan">PAN</option>
                     </select>
                     {errors.govtIdType && <p>{errors.govtIdType.message}</p>}

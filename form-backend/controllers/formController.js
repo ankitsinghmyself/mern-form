@@ -20,7 +20,7 @@ const formController = {
         ageOrSex: `${form.age}/${form.sex}`,
         mobile: form.mobile,
         address: form.address,
-        govtId: form.govtId,
+        govtId: `${form.govtIdType}-${form.govtId}`,
         guardianDetails: `(${form.guardianNameLabel}) ${form.guardianName}  - ${form.guardianEmail} - ${form.emergencyContactPhone}`,
         nationality: form.nationality,
       }));
