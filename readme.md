@@ -38,3 +38,7 @@ To use this application, follow these steps:
 1. Fill out the form with the required fields
 1. Click the "Submit" button to save the data
 1. You will be redirected to the data dashboard where you can view the saved data
+
+## License
+
+This project uses the following license: [MIT](LICENSE.md).
